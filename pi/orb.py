@@ -1,9 +1,17 @@
 import cv2 as cv
 from cv2 import COLOR_BGR2RGB
-import matplotlib.pyplot as plt
 import os
 import time
 import numpy as np
+
+# from picamera.array import PiRGBArray
+# from picamera import PiCamera
+
+# camera=PiCamera(sensor_mode=2)
+# camera.resolution=(2592,1944)
+# camera.exposure_compensation=-6
+# camera.meter_mode='backlit'
+# camera.framerate=60
 
 ref_ext = "jpg"
 ref = "campanile-day"
@@ -23,13 +31,21 @@ bf = cv.BFMatcher(cv.NORM_L2, crossCheck = True)
 
 ref_kp, ref_desc = orb.detectAndCompute(gray, None)
 
-vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-1.h264"))
-framenum = 0
-scale_factor = 4
+# vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-1.h264"))
+vid = cv.VideoCapture(0, cv.CAP_V4L2)
+vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
-fourcc = cv.VideoWriter_fourcc(*'DIVX')
+print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
+
+framenum = 0
+scale_factor = 2
+
+fourcc = cv.VideoWriter_fourcc(*'XVID')
+# fourcc = cv.VideoWriter_fourcc(*'H264')
 vid_out1 = None
 vid_out2 = None
+tEnd = time.time()
 
 while vid.isOpened():
     
@@ -40,13 +56,6 @@ while vid.isOpened():
         print("Can't receive frame (stream end?). Exiting ...")
         break
     gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
-    if vid_out1 is None:
-        vid_out1 = cv.VideoWriter(os.path.join(media_path, f"{ref}-track.avi"), fourcc, 20.0, gray1.shape)
-        print(vid_out1.isOpened())
-
-    if vid_out2 is None:
-        vid_out2 = cv.VideoWriter(os.path.join(media_path, f"{ref}-matches.avi"), fourcc, 20.0, gray1.shape)
-        print(vid_out1.isOpened())
 
     # detect SIFT keypoints
     t0 = time.time()
@@ -92,7 +101,7 @@ while vid.isOpened():
         dst_kp = cv.perspectiveTransform(src_pts,tf)
         for i in range(dst_kp.shape[0]):
             color = (0, 255, 0) if mask[i, 0] else (0, 0, 255)
-            cv.circle(out_img, np.int32(dst_kp[i, 0, :]) , 4, color, thickness = -1)
+            cv.circle(out_img, tuple(np.int32(dst_kp[i, 0, :])) , 4, color, thickness=-1)
 
     else:
         # print("failed to detect")
@@ -102,17 +111,34 @@ while vid.isOpened():
     
     out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
     match_img_disp = cv.resize(match_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
+    cv.putText(out_img_disp,"{:.2f} fps".format(1/(t4-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
+    cv.putText(match_img_disp,"{:.2f} fps".format(1/(t4-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
     cv.imshow("tracking", out_img_disp)
     cv.imshow("matches", match_img_disp)
     
-    vid_out1.write(out_img_disp)
-    vid_out2.write(match_img_disp)
 
-    cv.waitKey(delay=1)
+    if vid_out1 is None:
+        w, h = out_img.shape[:2]
+        vid_out1 = cv.VideoWriter(os.path.join(media_path, f"{ref}-track.avi"), fourcc, 20.0, (h, w))
+        print(vid_out1.isOpened(), out_img.shape[:2])
+
+    if vid_out2 is None:
+        w, h = match_img.shape[:2]
+        vid_out2 = cv.VideoWriter(os.path.join(media_path, f"{ref}-matches.avi"), fourcc, 20.0, (h, w))
+        print(vid_out2.isOpened(), match_img.shape[:2])
+
+    vid_out1.write(out_img)
+    vid_out2.write(match_img)
+
+    k = cv.waitKey(delay=1)
+    if k == 'q':
+        break
 
     if framenum % 60 == 0:
         print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
+        break
 
+    tEnd = time.time()
 # print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
 # fig1, axes = plt.subplots(1,2)
 # plt.subplots_adjust(0.02,0.1,0.98,0.9)
