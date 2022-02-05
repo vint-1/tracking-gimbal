@@ -18,6 +18,8 @@ ref = "campanile-day"
 
 ext = "png"
 
+RECORD_VIDEO = False
+
 script_path = os.path.dirname(os.path.realpath(__file__))
 proj_path = os.path.dirname(script_path)
 media_path = os.path.join(proj_path, "media")
@@ -116,27 +118,27 @@ while vid.isOpened():
     cv.imshow("tracking", out_img_disp)
     cv.imshow("matches", match_img_disp)
     
+    if RECORD_VIDEO:
+        if vid_out1 is None:
+            w, h = out_img.shape[:2]
+            vid_out1 = cv.VideoWriter(os.path.join(media_path, f"{ref}-track.avi"), fourcc, 20.0, (h, w))
+            print(vid_out1.isOpened(), out_img.shape[:2])
 
-    if vid_out1 is None:
-        w, h = out_img.shape[:2]
-        vid_out1 = cv.VideoWriter(os.path.join(media_path, f"{ref}-track.avi"), fourcc, 20.0, (h, w))
-        print(vid_out1.isOpened(), out_img.shape[:2])
+        if vid_out2 is None:
+            w, h = match_img.shape[:2]
+            vid_out2 = cv.VideoWriter(os.path.join(media_path, f"{ref}-matches.avi"), fourcc, 20.0, (h, w))
+            print(vid_out2.isOpened(), match_img.shape[:2])
 
-    if vid_out2 is None:
-        w, h = match_img.shape[:2]
-        vid_out2 = cv.VideoWriter(os.path.join(media_path, f"{ref}-matches.avi"), fourcc, 20.0, (h, w))
-        print(vid_out2.isOpened(), match_img.shape[:2])
-
-    vid_out1.write(out_img)
-    vid_out2.write(match_img)
+        vid_out1.write(out_img)
+        vid_out2.write(match_img)
 
     k = cv.waitKey(delay=1)
     if k == 'q':
         break
 
     if framenum % 60 == 0:
-        print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
-        break
+        print("FPS = {:.2f}".format(1/(t4-tEnd)), "ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
+        # break
 
     tEnd = time.time()
 # print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
