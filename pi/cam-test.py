@@ -97,6 +97,5 @@ except KeyboardInterrupt:
 
 try:
     vid.release()
-    vid_out1.release()
 except:
     pass
