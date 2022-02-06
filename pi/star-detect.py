@@ -1,4 +1,5 @@
-from turtle import back
+
+
 import cv2 as cv
 from cv2 import COLOR_BGR2RGB
 import os
@@ -19,16 +20,17 @@ from scipy.optimize import curve_fit
 ref_ext = "jpg"
 ref = "stars-capture"
 out_dir = "tracking"
-vid_num = 0
+vid_num = 4
 algo_name = "gaussian-symm-fit"
 
 ext = "png"
 
 RECORD_VIDEO = False
+LIVE_DISPLAY = False
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 proj_path = os.path.dirname(script_path)
-media_path = os.path.join(proj_path, "media", "stars", "first-light")
+media_path = os.path.join(proj_path, "media")
 
 vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
 
@@ -104,37 +106,33 @@ def adv_centroid(image):
         y_ct = moments["m01"]/moments["m00"]
     return x_offset_global + x_ct, y_offset_global + y_ct
 
-def star_extract(image):
-    # plot_img_surface(image, is_show=False, title = "original image")
+def star_extract(image, is_profile = False):
 
-    bg_iterations = 2
-    n = 4
-    max_stars = 1
+    n = 10
+    max_stars = 5
 
-    mask = np.zeros_like(image)
-    for i in range(bg_iterations):
-        masked_img = np.ma.array(image, mask = mask)
-        # median = np.ma.median(masked_img)
-        mean = np.ma.mean(masked_img)
-        sigma = np.ma.std(masked_img)
-        mask = image > mean + n * sigma
-        # plot_img(mask, is_show=False, title = f"{i}")
+    t0 = time.time()
+
+    # identify background statistics - ideally, we'd do multiple iterations, and use stddev so stars aren't included
+    mean = np.mean(image)
+    med = np.median(image)
+    # c = (image - mean).reshape((-1))
+    # sigma = np.sqrt(np.dot(c,c)/c.shape[0])
     
-    blurred = cv.GaussianBlur(image, (9, 9), 2)
-    mask = blurred > mean + n * sigma
+    blurred = cv.GaussianBlur(image, (7, 7), 2)
+    mask = blurred > (mean + max(n * (mean - med), 1))
+    t1 = time.time()
     background = mean
 
     n_cc, _, stats, centroids = cv.connectedComponentsWithStats(mask.astype(np.uint8), ltype = cv.CV_16U)
-
+    
     stars = []
     
-    labels = [i for i in range(1, n_cc)]
-    labels.sort(key = lambda x:stats[x, cv.CC_STAT_AREA])
-
+    t2 = time.time()
     conn_components = []
     for comp_num in range(1, n_cc):
         # preprocess images to find most promising connected components
-        if stats[comp_num, cv.CC_STAT_AREA] < 16:
+        if stats[comp_num, cv.CC_STAT_AREA] < 10:
             # not enough points to fit
             continue
 
@@ -143,8 +141,8 @@ def star_extract(image):
         conn_components.append((np.sum(comp_roi), comp_num))
     
     conn_components.sort(reverse=True)
-    if len(conn_components) > 10:
-        print(len(conn_components))
+
+    t3 = time.time()
 
     for comp_amp, comp_num in conn_components[:max_stars]:
 
@@ -160,7 +158,6 @@ def star_extract(image):
         # stars.append((moments["m00"], comp_x, comp_y))
 
         # compute x and y positions using gaussian fit
-        
         try:
             comp_x, comp_y = gaussian_fit(comp_img, x_guess = centroids[comp_num, 0]-stats[comp_num, cv.CC_STAT_LEFT], y_guess = centroids[comp_num, 1]-stats[comp_num, cv.CC_STAT_TOP], symm = True)
             comp_x = stats[comp_num, cv.CC_STAT_LEFT] + comp_x
@@ -175,9 +172,15 @@ def star_extract(image):
     # fig, axes = plt.subplots(1,2)
     # plt.subplots_adjust(0.05,0.1,0.95,0.9)
     # plot_img(image, is_show=False, ax = axes[0])
-    # plot_img(labels, ax = axes[1])
+    # plot_img(mask, ax = axes[1])
     # plt.show()
-    return stars[0][1:]
+
+    t4 = time.time()
+
+    if is_profile:
+        print(f"{n_cc}\t Background id: {t1-t0:.3f}s\t CC: {t2-t1:.3f}s\t Preproc: {t3-t2:.3f}s\t Fitting: {t4-t3:.3f}s")
+
+    return stars[0][1:] if len(stars)>0 else None
 
 def gaussian_fn(x, ctr_x, ctr_y, k_x, k_y, k_xy, mag):
     r = x - np.array([[ctr_x], [ctr_y]])
@@ -206,6 +209,8 @@ lastPrint = time.time()
 
 while vid.isOpened():
     
+    t0 = time.time()
+
     framenum +=1
 
     ret, img1 = vid.read()
@@ -215,7 +220,7 @@ while vid.isOpened():
     gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
 
     # detect stars
-    t0 = time.time()
+    t1 = time.time()
     
     # -- Method 1: use moments ie. find centroid -- 
     # x, y = centroid(gray1)
@@ -231,30 +236,35 @@ while vid.isOpened():
     # print(f"{x:.3f}\t{y:.3f}\t{roi_x:.3f}\t{roi_y:.3f}")
 
     # -- Method 3: use star-extract
-    # gray2, offset_x, offset_y = roi(gray1, (round(x),round(y)), 50)
-    x, y = star_extract(gray1)
-    # x += offset_x
-    # y += offset_y
-    roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
+    output = star_extract(gray1)
+    if output is not None:
+        x, y = output
+    else:
+        print("no stars detected")
+        x, y = (0, 0)
+    
+    track_x.append(x)
+    track_y.append(y)
+
+    t2 = time.time()
 
     # display
-    out_img = img1
-    cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
-    cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
-    out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
-    roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
-    cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
-    # cv.putText(match_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
-    cv.imshow("tracking", out_img_disp)
-    cv.imshow("RoI", roi_disp)
+    if LIVE_DISPLAY:
+        roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
+        out_img = img1
+        cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
+        cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
+        out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
+        roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
+        cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
+        cv.imshow("tracking", out_img_disp)
+        cv.imshow("RoI", roi_disp)
+    t3 = time.time()
 
     # plot, for diagnostics
     # if framenum % 120 == 0:
     #     img, _, _ = roi(gray1, (round(x),round(y)), 25)
     #     plot_img_surface(img, is_show=True)
-
-    track_x.append(x)
-    track_y.append(y)
 
     if RECORD_VIDEO:
         if vid_out1 is None:
@@ -269,6 +279,7 @@ while vid.isOpened():
 
         vid_out1.write(out_img)
         vid_out2.write(roi_disp)
+    t4 = time.time()
 
     k = cv.waitKey(delay=1)
     if k == 'q':
@@ -279,6 +290,9 @@ while vid.isOpened():
         lastPrint = time.time()
         # break
 
+    # print(f"({x:.2f}\t{y:.2f})\t Reading: {t1-t0:.3f}s\t Star Extraction: {t2-t1:.3f}s\t Display: {t3-t2:.3f}s\t Recording: {t4-t3:.3f}s")
+
+    t5 = time.time()
     tEnd = t0
 # print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
 # fig1, axes = plt.subplots(1,2)
