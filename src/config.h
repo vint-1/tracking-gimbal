@@ -1,5 +1,7 @@
 #include <Arduino.h>
 
+// Note that pin 13 is used for LED
+
 #define YSTEP_PIN 20
 #define YDIR_PIN 21
 #define XSTEP_PIN 40
@@ -28,3 +30,9 @@ void initPinmode(){
   pinMode(STICK_X, INPUT);
   pinMode(STICK_Y, INPUT);
 }
+
+// Stepper software things
+#define MAX_SPEED 1000 // microsteps/sec
+#define MAX_ACCEL 10000 // microsteps/sec^2
+#define PULSE_TIME 50 // in us
+#define UPDATE_PERIOD 1000 //in us
