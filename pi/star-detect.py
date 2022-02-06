@@ -1,5 +1,3 @@
-
-
 import cv2 as cv
 from cv2 import COLOR_BGR2RGB
 import os
@@ -26,7 +24,7 @@ algo_name = "gaussian-symm-fit"
 ext = "png"
 
 RECORD_VIDEO = False
-LIVE_DISPLAY = False
+LIVE_DISPLAY = True
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 proj_path = os.path.dirname(script_path)
