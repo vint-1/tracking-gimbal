@@ -1,8 +1,8 @@
 import serial
 import time
 
-BAUD_RATE = 9600
-ser = serial.Serial("/dev/ttyS0", baudrate = BAUD_RATE, timeout = 0.01)
+BAUD_RATE = 115200
+ser = serial.Serial("/dev/ttyS0", baudrate = BAUD_RATE, timeout = 0.005)
 
 def write_test():
     while True:
@@ -10,13 +10,20 @@ def write_test():
         time.sleep(0.05)
 
 def read_test():
+    print("=== Starting read test ===")
     while True:
         if ser.in_waiting > 0:
             line = ser.readline()
             print(line)
 
+def write_packet_test():
+    while True:
+        message = "120.321,-200.010\n"
+        print(ser.write(bytes(message, encoding="ascii")), len(message))
+        time.sleep(0.05)
+
 def main():
-    read_test()
+    write_packet_test()
 
 if __name__ == "__main__":
     main()
