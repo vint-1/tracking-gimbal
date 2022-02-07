@@ -22,14 +22,16 @@ namespace Stepper{
 
     void Stepper::set_spd_target(double set_spd){
         set_spd = max(-MAX_SPEED, min(MAX_SPEED, set_spd));
-        // This is really important!
+        // The timing here is crucial
+        uint64_t new_spd_chg = micros();
         if (this->mode == MODE_SPD_CTRL) {
-            this->fine_pos_setpoint = this->pos_last_spd_chg + (this->current_spd * (micros() - this->last_spd_chg));
+            this->fine_pos_setpoint = this->pos_last_spd_chg + (this->current_spd * (new_spd_chg - this->last_spd_chg));
         }
+        
         this->mode = MODE_SPD_CTRL;
         this->spd_setpoint = set_spd;
         this->current_spd = set_spd;
-        this->last_spd_chg = micros();
+        this->last_spd_chg = new_spd_chg;
         this->pos_last_spd_chg = this->fine_pos_setpoint;
     }
 

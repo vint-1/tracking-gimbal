@@ -50,6 +50,9 @@ void setup() {
     digitalWrite(XDIR_PIN, LOW);
     digitalWrite(YDIR_PIN, LOW);
 
+    // Pi Serial
+    PI_SERIAL.begin(BAUD_RATE);
+
     delay(500);
 
     // Misc. things
