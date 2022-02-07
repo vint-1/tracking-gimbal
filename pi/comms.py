@@ -22,6 +22,10 @@ def write_packet_test():
         print(ser.write(bytes(message, encoding="ascii")), len(message))
         time.sleep(0.05)
 
+def write_coord(x, y):
+    message = f"{x:.3f},{y:.3f}\n"
+    ser.write(bytes(message, encoding="ascii"))
+
 def main():
     write_packet_test()
 

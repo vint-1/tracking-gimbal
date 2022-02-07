@@ -22,8 +22,8 @@ void setMS(int m, int m1_pin, int m2_pin){ //sets output to achieve desired micr
 
 int normalizeInput(int raw){
   // normalizes input
-  const int dead_low = 490;
-  const int dead_hi = 550;
+  const int dead_low = 450;
+  const int dead_hi = 590;
   if (raw <= dead_low) {
     return raw-dead_low;
   } else if (raw >= dead_hi) {

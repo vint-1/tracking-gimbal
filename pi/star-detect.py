@@ -4,6 +4,7 @@ import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import comms
 from scipy.optimize import curve_fit
 
 # from picamera.array import PiRGBArray
@@ -237,6 +238,7 @@ while vid.isOpened():
     output = star_extract(gray1)
     if output is not None:
         x, y = output
+        comms.write_coord(x, y)
     else:
         print("no stars detected")
         x, y = (0, 0)

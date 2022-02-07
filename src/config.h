@@ -16,6 +16,8 @@
 
 #define STICK_X 27
 #define STICK_Y 26
+#define STICK_BTN 38
+#define BTN_THRESH 100
 
 void initPinmode(){
   pinMode(YSTEP_PIN,OUTPUT);
@@ -29,10 +31,6 @@ void initPinmode(){
   pinMode(XM2_PIN,OUTPUT);
   pinMode(STICK_X, INPUT);
   pinMode(STICK_Y, INPUT);
+  pinMode(STICK_BTN, INPUT);
 }
 
-// Stepper software things
-#define MAX_SPEED 1000 // microsteps/sec
-#define MAX_ACCEL 10000 // microsteps/sec^2
-#define PULSE_TIME 50 // in us
-#define UPDATE_PERIOD 1000 //in us
