@@ -1,5 +1,9 @@
 #include <stepper.h>
 
+/*
+Created by Vint Lee 2022
+*/
+
 namespace Stepper{
 
     Stepper::Stepper(unsigned step_pin, unsigned dir_pin, int pulse_time) {

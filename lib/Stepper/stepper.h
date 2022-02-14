@@ -10,6 +10,10 @@
 #define PULSE_TIME 50 // in us
 #define UPDATE_PERIOD 1000 //in us
 
+/*
+Created by Vint Lee 2022
+*/
+
 namespace Stepper{
 
     class Stepper{
