@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import comms
 from scipy.optimize import curve_fit
+from datetime import datetime
 
 # from picamera.array import PiRGBArray
 # from picamera import PiCamera
@@ -24,18 +25,21 @@ algo_name = "gaussian-closed-loop"
 
 ext = "png"
 
-RECORD_VIDEO = True
-LIVE_DISPLAY = False
+OFFLINE_TEST = True
+RECORD_VIDEO = False
+LIVE_DISPLAY = True
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 proj_path = os.path.dirname(script_path)
 media_path = os.path.join(proj_path, "media")
 
-# vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
+if OFFLINE_TEST:
+    vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
 
-vid = cv.VideoCapture(0, cv.CAP_V4L2)
-vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
-vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
+else:
+    vid = cv.VideoCapture(0, cv.CAP_V4L2)
+    vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+    vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
 print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
@@ -271,7 +275,11 @@ while vid.isOpened():
     if RECORD_VIDEO:
         if vid_out1 is None:
             w, h = out_img.shape[:2]
-            vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+            if OFFLINE_TEST:
+                vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+            else:
+                timestamp = datetime.now().strftime("%y-%m-%d")
+                vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
             print(vid_out1.isOpened(), out_img.shape[:2])
 
         # if vid_out2 is None:
