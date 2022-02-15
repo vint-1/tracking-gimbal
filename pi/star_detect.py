@@ -17,43 +17,178 @@ from datetime import datetime
 # camera.meter_mode='backlit'
 # camera.framerate=60
 
-ref_ext = "jpg"
-ref = "stars-capture"
-out_dir = "tracking"
-vid_num = 4
-algo_name = "gaussian-closed-loop"
+offline_test = True
+debug_timing = False
 
-ext = "png"
+def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
 
-OFFLINE_TEST = True
-RECORD_VIDEO = False
-LIVE_DISPLAY = True
+    ref_ext = "jpg"
+    ref = "stars-capture"
+    out_dir = "tracking"
+    vid_num = 4
+    algo_name = "gaussian-multiproc"
 
-script_path = os.path.dirname(os.path.realpath(__file__))
-proj_path = os.path.dirname(script_path)
-media_path = os.path.join(proj_path, "media")
+    ext = "png"
 
-if OFFLINE_TEST:
-    vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
+    script_path = os.path.dirname(os.path.realpath(__file__))
+    proj_path = os.path.dirname(script_path)
+    media_path = os.path.join(proj_path, "media")
 
-else:
-    vid = cv.VideoCapture(0, cv.CAP_V4L2)
-    vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
-    vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
+    if offline_test:
+        vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
 
-print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
+    else:
+        vid = cv.VideoCapture(0, cv.CAP_V4L2)
+        vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+        vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
-framenum = 0
-scale_factor = 1
+    print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
-fourcc = cv.VideoWriter_fourcc(*'XVID')
-# fourcc = cv.VideoWriter_fourcc(*'H264')
-vid_out1 = None
-vid_out2 = None
-tEnd = time.time()
+    framenum = 0
+    scale_factor = 1
 
-track_x = []
-track_y = []
+    fourcc = cv.VideoWriter_fourcc(*'XVID')
+    # fourcc = cv.VideoWriter_fourcc(*'H264')
+    vid_out1 = None
+    vid_out2 = None
+    tEnd = time.time()
+
+    track_x = []
+    track_y = []
+
+    lastPrint = time.time()
+
+    while vid.isOpened():
+        
+        t0 = time.time()
+
+        framenum +=1
+
+        ret, img1 = vid.read()
+        if not ret:
+            print("Can't receive frame (stream end?). Exiting ...")
+            break
+        gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
+
+        # detect stars
+        t1 = time.time()
+        
+        # -- Method 1: use moments ie. find centroid -- 
+        # x, y = centroid(gray1)
+
+        # -- Method 2: use centroids, but iteratively --
+        # try:
+        #     x, y = adv_centroid(gray1)
+        # except ZeroDivisionError as e:
+        #     print("could not find star")
+        #     x = 0
+        #     y = 0
+        
+        # print(f"{x:.3f}\t{y:.3f}\t{roi_x:.3f}\t{roi_y:.3f}")
+
+        # -- Method 3: use star-extract
+        if PROCESS_IMG.value:
+            output = star_extract(gray1)
+            if output is not None:
+                x, y = output
+                comms.write_coord(x, y)
+            else:
+                # print("no stars detected")
+                x, y = (-1, -1)
+        else:
+            x, y = (-1, -1)
+
+        track_x.append(x)
+        track_y.append(y)
+
+        t2 = time.time()
+
+        # display
+        if LIVE_DISPLAY.value or RECORD_VIDEO.value:
+            
+            out_img = img1
+
+            if (x,y) != (-1,-1):
+                cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
+                cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
+                # roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
+                # roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
+            else:
+                roi_disp = None
+
+            out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
+            cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
+
+        if LIVE_DISPLAY.value:
+            cv.imshow("tracking", out_img_disp)
+            # if roi_disp is not None:
+                # cv.imshow("RoI", roi_disp)
+        t3 = time.time()
+
+        # plot, for diagnostics
+        # if framenum % 120 == 0:
+        #     img, _, _ = roi(gray1, (round(x),round(y)), 25)
+        #     plot_img_surface(img, is_show=True)
+
+        if RECORD_VIDEO.value:
+            if vid_out1 is None:
+                w, h = out_img.shape[:2]
+                if offline_test:
+                    vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+                else:
+                    timestamp = datetime.now().strftime("%y-%m-%d")
+                    vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
+                print(vid_out1.isOpened(), out_img.shape[:2])
+
+            # if vid_out2 is None:
+            #     w, h = roi_disp.shape[:2]
+            #     vid_out2 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-roi-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+            #     print(vid_out2.isOpened(), roi_disp.shape[:2])
+
+            vid_out1.write(out_img)
+            # if roi_disp is not None:
+            #     vid_out2.write(roi_disp)
+
+        t4 = time.time()
+
+        k = cv.waitKey(delay=1)
+        if k == 'q':
+            break
+
+        if framenum % 60 == 0:
+            print("FPS = {:.2f}".format(60/(time.time() - lastPrint)))
+            lastPrint = time.time()
+            # break
+
+        if debug_timing:
+            print(f"({x:.2f}\t{y:.2f})\t Reading: {t1-t0:.3f}s\t Star Extraction: {t2-t1:.3f}s\t Display: {t3-t2:.3f}s\t Recording: {t4-t3:.3f}s")
+
+        t5 = time.time()
+        tEnd = t0
+
+    try:
+        vid.release()
+        vid_out1.release()
+        vid_out2.release()
+    except:
+        pass
+
+    # plot results
+    fig1, axes = plt.subplots(1,2)
+    plt.subplots_adjust(0.05,0.1,0.95,0.9)
+    axes[0].set_title(f"x position - {algo_name}")
+    axes[0].set_xlabel("frame number")
+    axes[0].plot(track_x)
+    axes[1].set_title(f"y position - {algo_name}")
+    axes[1].set_xlabel("frame number")
+    axes[1].plot(track_y)
+
+    plt.show()
+
+    # k = cv.waitKey(0)
+    # if k == ord("c"):
+    #     pass
+
 
 def plot_img_surface(img, ax = None, is_show = False, title = ""):
     if ax is None:
@@ -207,132 +342,3 @@ def gaussian_fit(image, x_guess = 1, y_guess = 1, symm = False):
         opt, _ = curve_fit(sym_gaussian_fn, xy, z, p0 = (x_guess, y_guess, 0.3, 100))
     # plot_img(gaussian_fn(xy, 15, 10, .3, .3, 0, 10).reshape(image.shape[0],image.shape[1]))
     return opt[0], opt[1]
-
-lastPrint = time.time()
-
-while vid.isOpened():
-    
-    t0 = time.time()
-
-    framenum +=1
-
-    ret, img1 = vid.read()
-    if not ret:
-        print("Can't receive frame (stream end?). Exiting ...")
-        break
-    gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
-
-    # detect stars
-    t1 = time.time()
-    
-    # -- Method 1: use moments ie. find centroid -- 
-    # x, y = centroid(gray1)
-
-    # -- Method 2: use centroids, but iteratively --
-    # try:
-    #     x, y = adv_centroid(gray1)
-    # except ZeroDivisionError as e:
-    #     print("could not find star")
-    #     x = 0
-    #     y = 0
-    
-    # print(f"{x:.3f}\t{y:.3f}\t{roi_x:.3f}\t{roi_y:.3f}")
-
-    # -- Method 3: use star-extract
-    output = star_extract(gray1)
-    if output is not None:
-        x, y = output
-        comms.write_coord(x, y)
-    else:
-        print("no stars detected")
-        x, y = (0, 0)
-    
-    track_x.append(x)
-    track_y.append(y)
-
-    t2 = time.time()
-
-    # display
-    if LIVE_DISPLAY or RECORD_VIDEO:
-        roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
-        out_img = img1
-        cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
-        cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
-        out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
-        # roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
-        cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
-
-    if LIVE_DISPLAY:
-        cv.imshow("tracking", out_img_disp)
-        # cv.imshow("RoI", roi_disp)
-    t3 = time.time()
-
-    # plot, for diagnostics
-    # if framenum % 120 == 0:
-    #     img, _, _ = roi(gray1, (round(x),round(y)), 25)
-    #     plot_img_surface(img, is_show=True)
-
-    if RECORD_VIDEO:
-        if vid_out1 is None:
-            w, h = out_img.shape[:2]
-            if OFFLINE_TEST:
-                vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
-            else:
-                timestamp = datetime.now().strftime("%y-%m-%d")
-                vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
-            print(vid_out1.isOpened(), out_img.shape[:2])
-
-        # if vid_out2 is None:
-        #     w, h = roi_disp.shape[:2]
-        #     vid_out2 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-roi-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
-        #     print(vid_out2.isOpened(), roi_disp.shape[:2])
-
-        vid_out1.write(out_img)
-        # vid_out2.write(roi_disp)
-    t4 = time.time()
-
-    k = cv.waitKey(delay=1)
-    if k == 'q':
-        break
-
-    if framenum % 60 == 0:
-        print("FPS = {:.2f}".format(60/(time.time() - lastPrint)))
-        lastPrint = time.time()
-        # break
-
-    # print(f"({x:.2f}\t{y:.2f})\t Reading: {t1-t0:.3f}s\t Star Extraction: {t2-t1:.3f}s\t Display: {t3-t2:.3f}s\t Recording: {t4-t3:.3f}s")
-
-    t5 = time.time()
-    tEnd = t0
-# print("ORB detected and computed in {:.3f}s".format(t1-t0), "\t Matching in {:.3f}s".format(t2-t1), "\t Homography in {:.3f}s".format(t4-t3))
-# fig1, axes = plt.subplots(1,2)
-# plt.subplots_adjust(0.02,0.1,0.98,0.9)
-# # axes.imshow(cv.cvtColor(reference_img, cv.COLOR_BGR2RGB))
-# axes[0].imshow(cv.cvtColor(out_img,cv.COLOR_BGR2RGB))
-# axes[1].imshow(cv.cvtColor(match_img,cv.COLOR_BGR2RGB))
-# axes[0].axis('off')
-# axes[1].axis('off')
-# plt.show()
-
-try:
-    vid.release()
-    vid_out1.release()
-    vid_out2.release()
-except:
-    pass
-
-# plot results
-fig1, axes = plt.subplots(1,2)
-plt.subplots_adjust(0.05,0.1,0.95,0.9)
-axes[0].set_title(f"x position - {algo_name}")
-axes[0].set_xlabel("frame number")
-axes[0].plot(track_x)
-axes[1].set_title(f"y position - {algo_name}")
-axes[1].set_xlabel("frame number")
-axes[1].plot(track_y)
-
-plt.show()
-
-# k = cv.waitKey(0)
-# if k == ord("c"):
-#     pass
