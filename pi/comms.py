@@ -1,3 +1,4 @@
+from math import sin, cos
 import serial
 import time
 
@@ -22,12 +23,30 @@ def write_packet_test():
         print(ser.write(bytes(message, encoding="ascii")), len(message))
         time.sleep(0.05)
 
+def twoway_test():
+    print("=== Starting twoway test ===")
+    while True:
+        t = time.time()
+        write_coord(sin(t),cos(t))
+        if ser.in_waiting > 0:
+            line = read()
+            print(line.split(","))
+
 def write_coord(x, y):
-    message = f"{x:.3f},{y:.3f}\n"
+    message = f"{x:.3f},{y:.3f}\n" # writes with 3 decimal precision
     ser.write(bytes(message, encoding="ascii"))
 
+def read():
+    """ 
+    Reads from serial. returns None if there is nothing to read, otherwise return single line with whitespace stripped
+    """
+    if ser.in_waiting > 0:
+        line = str(ser.readline(), 'ascii').strip()
+        return line
+    return
+
 def main():
-    write_packet_test()
+    twoway_test()
 
 if __name__ == "__main__":
     main()
