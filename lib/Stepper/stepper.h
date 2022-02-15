@@ -12,6 +12,7 @@
 
 /*
 Created by Vint Lee 2022
+Note: all speeds are in microsteps/us
 */
 
 namespace Stepper{
