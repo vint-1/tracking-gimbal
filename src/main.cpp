@@ -26,8 +26,8 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 float star_pos[2]; // stores x,y star position 
 float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
 
-double k_xp = 1e-6;
-double k_yp = 1e-6; 
+double k_xp = 0.5e-6;
+double k_yp = 0.3e-6; 
 double k_xi = 1e-12;
 double k_yi = 1e-12;
 
@@ -79,20 +79,22 @@ void loop() {
         x_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
         y_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
 
-        if (millis() > (lastPrint + 250)){
+        if (millis() > (lastPrint + 100)){
             Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(1e6*x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(1e6*y_motor.get_speed()));
             lastPrint = millis();
         }
     
     } else if (mode == MODE_TRACK) {
         if (PI_SERIAL.available()){
+            digitalWrite(LED_BUILTIN, HIGH);
             if (!Comms::parse(star_pos)) {
                 // successfully parsed
-                Serial.print(dt/1000); Serial.print("\tx: "); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
+                Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
                 Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
-                x_motor.set_spd_target(k_xp * (star_setpoint[0] - star_pos[0]));
-                y_motor.set_spd_target(k_yp * (star_setpoint[0] - star_pos[0]));
+                x_motor.set_spd_target(-k_xp * (star_setpoint[0] - star_pos[0]));
+                y_motor.set_spd_target(-k_yp * (star_setpoint[1] - star_pos[1]));
             }
+            digitalWrite(LED_BUILTIN, LOW);
         }
     }
 
@@ -103,18 +105,20 @@ void loop() {
             y_motor.set_spd_target(0);
             mode = MODE_TRACK;
             Serial.println("Switched to closed-loop tracking mode");
+            digitalWrite(LED_BUILTIN, LOW);
         } else if (mode == MODE_TRACK) {
             x_motor.set_spd_target(0);
             y_motor.set_spd_target(0);
             mode = MODE_JOYSTICK;
             Serial.println("Switched to manual mode");
+            digitalWrite(LED_BUILTIN, HIGH);
         }
-        delay(150);
+        delay(200);
         while(analogRead(STICK_BTN) < BTN_THRESH){
             x_motor.update();
             y_motor.update();
         }
-        delay(150);
+        delay(200);
     }
 
     x_motor.update();
