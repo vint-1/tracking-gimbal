@@ -82,6 +82,10 @@ namespace Stepper{
         // Serial.println(String(this->fine_pos_setpoint) + "\t" + String(this->current_spd * (micros() - this->last_spd_chg)));
         return this->pos_setpoint;
     }
+
+    double Stepper::get_spd_setpoint() {
+        return this->spd_setpoint;
+    }
     
     double Stepper::get_speed() {
         return this->current_spd;

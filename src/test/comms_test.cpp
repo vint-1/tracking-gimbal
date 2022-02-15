@@ -18,12 +18,12 @@ void loop(){
         if (!Comms::parse(star_pos)) {
             // successfully parsed
             Serial.print(millis()-t0); Serial.print("\t");Serial.print(star_pos[0]*10.0); Serial.print("\t"); Serial.print(star_pos[1]*10.0); Serial.print('\n');
-
-            // Now we "reflect" the signal back to the pi
-            Comms::write_telemetry(micros(), star_pos, 2.32e-3, 1.5e-1, 2e-1, -3.231e-3, 100000, -500000000);
         } else {
             Serial.println("parsing fucked up");
         }
     }
+
+    // Write telemetry as fast as humanly possible
+    Comms::write_telemetry(micros(), star_pos, 2.32e-3, 1.5e-1, 2e-1, -3.231e-3, 100000, -500000000);
     // delay(100);
 }

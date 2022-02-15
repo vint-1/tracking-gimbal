@@ -51,6 +51,7 @@ namespace Stepper{
 
         long get_stepcount();
         long get_pos_setpoint();
+        double get_spd_setpoint();
         double get_speed();
 
     };

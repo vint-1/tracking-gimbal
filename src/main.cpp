@@ -79,7 +79,7 @@ void loop() {
         x_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
         y_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
 
-        if (millis() > (lastPrint + 100)){
+        if (millis() >= (lastPrint + 100)){
             Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(1e6*x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(1e6*y_motor.get_speed()));
             lastPrint = millis();
         }
@@ -89,13 +89,23 @@ void loop() {
             digitalWrite(LED_BUILTIN, HIGH);
             if (!Comms::parse(star_pos)) {
                 // successfully parsed
-                Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
-                Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
+                // Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
+                // Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
                 x_motor.set_spd_target(-k_xp * (star_setpoint[0] - star_pos[0]));
                 y_motor.set_spd_target(-k_yp * (star_setpoint[1] - star_pos[1]));
             }
             digitalWrite(LED_BUILTIN, LOW);
         }
+
+        if (millis() >= (lastPrint + 100)){
+            // send telemetry
+            Comms::write_telemetry( micros(), star_pos,
+                                    x_motor.get_spd_setpoint(), y_motor.get_spd_setpoint(),
+                                    x_motor.get_speed(), y_motor.get_speed(),
+                                    x_motor.get_stepcount(), y_motor.get_stepcount());
+            lastPrint = millis();
+        }
+
     }
 
     // logic to switch modes
@@ -104,13 +114,15 @@ void loop() {
             x_motor.set_spd_target(0);
             y_motor.set_spd_target(0);
             mode = MODE_TRACK;
-            Serial.println("Switched to closed-loop tracking mode");
+            Comms::writeln("trk");
+            // Serial.println("Switched to tracking mode");
             digitalWrite(LED_BUILTIN, LOW);
         } else if (mode == MODE_TRACK) {
             x_motor.set_spd_target(0);
             y_motor.set_spd_target(0);
             mode = MODE_JOYSTICK;
-            Serial.println("Switched to manual mode");
+            Comms::writeln("acq");
+            // Serial.println("Switched to manual acquisition mode");
             digitalWrite(LED_BUILTIN, HIGH);
         }
         delay(200);
