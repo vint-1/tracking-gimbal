@@ -20,22 +20,22 @@ ref_ext = "jpg"
 ref = "stars-capture"
 out_dir = "tracking"
 vid_num = 4
-algo_name = "gaussian-symm-fit"
+algo_name = "gaussian-closed-loop"
 
 ext = "png"
 
-RECORD_VIDEO = False
-LIVE_DISPLAY = True
+RECORD_VIDEO = True
+LIVE_DISPLAY = False
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 proj_path = os.path.dirname(script_path)
 media_path = os.path.join(proj_path, "media")
 
-vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
+# vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
 
-# vid = cv.VideoCapture(0, cv.CAP_V4L2)
-# vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
-# vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
+vid = cv.VideoCapture(0, cv.CAP_V4L2)
+vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
 print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
@@ -249,16 +249,18 @@ while vid.isOpened():
     t2 = time.time()
 
     # display
-    if LIVE_DISPLAY:
+    if LIVE_DISPLAY or RECORD_VIDEO:
         roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
         out_img = img1
         cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
         cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
         out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
-        roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
+        # roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
         cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
+
+    if LIVE_DISPLAY:
         cv.imshow("tracking", out_img_disp)
-        cv.imshow("RoI", roi_disp)
+        # cv.imshow("RoI", roi_disp)
     t3 = time.time()
 
     # plot, for diagnostics
@@ -272,13 +274,13 @@ while vid.isOpened():
             vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
             print(vid_out1.isOpened(), out_img.shape[:2])
 
-        if vid_out2 is None:
-            w, h = roi_disp.shape[:2]
-            vid_out2 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-roi-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
-            print(vid_out2.isOpened(), roi_disp.shape[:2])
+        # if vid_out2 is None:
+        #     w, h = roi_disp.shape[:2]
+        #     vid_out2 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-roi-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+        #     print(vid_out2.isOpened(), roi_disp.shape[:2])
 
         vid_out1.write(out_img)
-        vid_out2.write(roi_disp)
+        # vid_out2.write(roi_disp)
     t4 = time.time()
 
     k = cv.waitKey(delay=1)
