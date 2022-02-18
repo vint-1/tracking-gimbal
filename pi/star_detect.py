@@ -4,7 +4,6 @@ import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
-import comms
 from scipy.optimize import curve_fit
 from datetime import datetime
 
@@ -20,15 +19,19 @@ from datetime import datetime
 offline_test = True
 debug_timing = False
 
-def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
+def fuckery(a,b,c,d):
+    cnt = 0
+    while True:
+        cnt+=1
+        if cnt % 1e6 == 0:
+            print(cnt)
 
-    ref_ext = "jpg"
+def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
+
     ref = "stars-capture"
     out_dir = "tracking"
     vid_num = 4
     algo_name = "gaussian-multiproc"
-
-    ext = "png"
 
     script_path = os.path.dirname(os.path.realpath(__file__))
     proj_path = os.path.dirname(script_path)
@@ -59,6 +62,10 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
     lastPrint = time.time()
 
     while vid.isOpened():
+
+        process_img_flag = PROCESS_IMG.value
+        live_display_flag = LIVE_DISPLAY.value
+        record_video_flag = RECORD_VIDEO.value
         
         t0 = time.time()
 
@@ -87,11 +94,12 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
         # print(f"{x:.3f}\t{y:.3f}\t{roi_x:.3f}\t{roi_y:.3f}")
 
         # -- Method 3: use star-extract
-        if PROCESS_IMG.value:
+        if process_img_flag:
             output = star_extract(gray1)
             if output is not None:
                 x, y = output
-                comms.write_coord(x, y)
+                OBJ_COORD[:] = (time.time(), x, y)
+                # comms.write_coord(x, y)
             else:
                 # print("no stars detected")
                 x, y = (-1, -1)
@@ -104,7 +112,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
         t2 = time.time()
 
         # display
-        if LIVE_DISPLAY.value or RECORD_VIDEO.value:
+        if live_display_flag or record_video_flag:
             
             out_img = img1
 
@@ -119,7 +127,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
             out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
             cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
 
-        if LIVE_DISPLAY.value:
+        if live_display_flag:
             cv.imshow("tracking", out_img_disp)
             # if roi_disp is not None:
                 # cv.imshow("RoI", roi_disp)
@@ -130,7 +138,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
         #     img, _, _ = roi(gray1, (round(x),round(y)), 25)
         #     plot_img_surface(img, is_show=True)
 
-        if RECORD_VIDEO.value:
+        if record_video_flag:
             if vid_out1 is None:
                 w, h = out_img.shape[:2]
                 if offline_test:
