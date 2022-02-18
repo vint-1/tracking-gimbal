@@ -3,6 +3,7 @@ from cv2 import COLOR_BGR2RGB
 import os
 import time
 import numpy as np
+import pathutils
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
@@ -16,15 +17,8 @@ from datetime import datetime
 # camera.meter_mode='backlit'
 # camera.framerate=60
 
-offline_test = True
+offline_test = False
 debug_timing = False
-
-def fuckery(a,b,c,d):
-    cnt = 0
-    while True:
-        cnt+=1
-        if cnt % 1e6 == 0:
-            print(cnt)
 
 def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
 
@@ -33,12 +27,8 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
     vid_num = 4
     algo_name = "gaussian-multiproc"
 
-    script_path = os.path.dirname(os.path.realpath(__file__))
-    proj_path = os.path.dirname(script_path)
-    media_path = os.path.join(proj_path, "media")
-
     if offline_test:
-        vid = cv.VideoCapture(os.path.join(media_path, f"{ref}-{vid_num}.avi"))
+        vid = cv.VideoCapture(os.path.join(pathutils.media_path, f"{ref}-{vid_num}.avi"))
 
     else:
         vid = cv.VideoCapture(0, cv.CAP_V4L2)
@@ -131,6 +121,8 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             cv.imshow("tracking", out_img_disp)
             # if roi_disp is not None:
                 # cv.imshow("RoI", roi_disp)
+        else:
+            cv.destroyAllWindows()
         t3 = time.time()
 
         # plot, for diagnostics
@@ -142,10 +134,10 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             if vid_out1 is None:
                 w, h = out_img.shape[:2]
                 if offline_test:
-                    vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
+                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
                 else:
                     timestamp = datetime.now().strftime("%y-%m-%d")
-                    vid_out1 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
+                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
                 print(vid_out1.isOpened(), out_img.shape[:2])
 
             # if vid_out2 is None:
@@ -164,7 +156,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             break
 
         if framenum % 60 == 0:
-            print("FPS = {:.2f}".format(60/(time.time() - lastPrint)))
+            print("FPS = {:.2f}\t x = {:.2f} \t y = {:.2f}".format(60/(time.time() - lastPrint), x, y))
             lastPrint = time.time()
             # break
 
