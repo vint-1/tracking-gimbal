@@ -3,10 +3,11 @@ import star_detect
 import comms
 import multiprocessing as mp
 import multiprocessing.sharedctypes as mpc
+import telemetry
 
 # defaults
 # acq_proc_img = True
-acq_proc_img = True
+acq_proc_img = False
 trk_record_vid = False
 record_telemetry = True
 
@@ -26,12 +27,14 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         - Telemetry:        YES
     """
     mode = "acq"
-    telemetry = False
+    is_telemetry = False
+    telemetry_writer = telemetry.csvWriter(header = ["time", "obj_x", "obj_y", "setspd_x", "setspd_y", "spd_x", "spd_y", "step_x", "step_y"])
 
     def switch_to_mode(new_mode):
 
         nonlocal mode
-        nonlocal telemetry
+        nonlocal is_telemetry
+        nonlocal telemetry_writer
 
         if new_mode == "trk":
             print("--- Switching to tracking mode ---")
@@ -43,24 +46,23 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
                 return
         
             # initialize telemetry
-
+            telemetry_writer.open()
             mode = "trk"
-            telemetry = True
+            is_telemetry = True
 
         elif new_mode == "acq":
             print("--- Switching to acquisition mode ---")
             PROCESS_IMG.value = acq_proc_img
-            LIVE_DISPLAY.value = False
-            # LIVE_DISPLAY.value = True
+            LIVE_DISPLAY.value = True
             RECORD_VIDEO.value = False
 
             if mode == "acq": # already in acquition mode, nothing to do
                 return
             
             # close telemetry
-
+            telemetry_writer.close()
             mode = "acq"
-            telemetry = False
+            is_telemetry = False
 
         else:
             print(f"--- Unknown mode: {new_mode} ---")
@@ -83,9 +85,8 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             if len(split) == 1: # command detected
                 switch_to_mode(split[0])
                 continue
-            elif telemetry and record_telemetry: # telemetry data incoming, record it
-                print(split)
-            
+            elif is_telemetry and record_telemetry: # telemetry data incoming, record it
+                telemetry_writer.write(split)
 
 if __name__ == "__main__":
 
@@ -95,7 +96,6 @@ if __name__ == "__main__":
     OBJ_COORD = mp.Array("d", 3, lock = True) # first entry is write_time, 2nd is x, 3rd is y
 
     p = mp.Process(target = star_detect.main, args = (PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD))
-    # p = mp.Process(target = star_detect.fuckery, args = (PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD))
     p.start()
     main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD)
     # p.join()
