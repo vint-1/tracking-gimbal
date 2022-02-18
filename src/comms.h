@@ -15,6 +15,6 @@ namespace Comms {
                         double curr_spd_x, double curr_spd_y,
                         long stepcount_x, long stepcount_y);
     // Telemetry format:
-    // time (us); obj x,y (px); spd target x,y (uS/ms); spd current x,y (uS/ms); microsteps x,y
+    // time (us); obj x,y (px); spd target x,y (uS/s); spd current x,y (uS/s); microsteps x,y
 
 }

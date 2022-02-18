@@ -25,16 +25,19 @@ namespace Stepper{
     }
 
     void Stepper::set_spd_target(double set_spd){
-        set_spd = max(-MAX_SPEED, min(MAX_SPEED, set_spd));
+        set_spd = max(-MAX_SPEED, min(MAX_SPEED, set_spd)) * 1e-6; // convert units to microsteps/us
         // The timing here is crucial
         uint64_t new_spd_chg = micros();
         if (this->mode == MODE_SPD_CTRL) {
             this->fine_pos_setpoint = this->pos_last_spd_chg + (this->current_spd * (new_spd_chg - this->last_spd_chg));
+            // update acceleration
+            double spd_delta = MAX_ACCEL * ((new_spd_chg - this->last_accel_update) / 1.0e6) / 1.0e6; // convert units to microsteps/us^2
+            this->current_spd = max(this->current_spd - spd_delta,min(this->current_spd + spd_delta, this->spd_setpoint)); 
         }
         
         this->mode = MODE_SPD_CTRL;
         this->spd_setpoint = set_spd;
-        this->current_spd = set_spd;
+        this->last_accel_update = new_spd_chg;
         this->last_spd_chg = new_spd_chg;
         this->pos_last_spd_chg = this->fine_pos_setpoint;
     }
@@ -42,8 +45,15 @@ namespace Stepper{
     void Stepper::update(){
         
         if (this->mode == MODE_SPD_CTRL) {
+            
+            uint32_t timenow = micros();
+            // update acceleration
+            double spd_delta = MAX_ACCEL * ((timenow - this->last_accel_update) / 1.0e6) / 1.0e6; // convert units to microsteps/us^2
+            this->current_spd = max(this->current_spd - spd_delta,min(this->current_spd + spd_delta, this->spd_setpoint));
+            this->last_accel_update = timenow; 
+
             // Serial.println(micros() - this->last_spd_chg);
-            this->fine_pos_setpoint = this->pos_last_spd_chg + (this->current_spd * (micros() - this->last_spd_chg));
+            this->fine_pos_setpoint = this->pos_last_spd_chg + (this->current_spd * (timenow - this->last_spd_chg));
             this->pos_setpoint = long(this->fine_pos_setpoint);
         }
             
@@ -84,11 +94,17 @@ namespace Stepper{
     }
 
     double Stepper::get_spd_setpoint() {
-        return this->spd_setpoint;
+        /* 
+        Returns target speed of motor in microsteps/s
+        */
+        return 1e6 * this->spd_setpoint;
     }
     
     double Stepper::get_speed() {
-        return this->current_spd;
+        /* 
+        Returns current speed of motor in microsteps/s
+        */
+        return 1e6 * this->current_spd;
     }
 
 }

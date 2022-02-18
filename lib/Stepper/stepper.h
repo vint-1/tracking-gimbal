@@ -4,10 +4,11 @@
 #define MODE_POS_CTRL 1
 #define MODE_SPD_CTRL 2
 
-// #define MAX_SPEED 1000 // microsteps/sec
-#define MAX_SPEED 6400e-6
-#define MAX_ACCEL 10000 // microsteps/sec^2
-#define PULSE_TIME 50 // in us
+// #define MAX_SPEED 12800 // microsteps/s
+#define MAX_SPEED 6400 // microsteps/s
+#define MAX_ACCEL 12800 // microsteps/s^2
+// #define MAX_ACCEL 10000
+#define PULSE_TIME 10 // in us
 #define UPDATE_PERIOD 1000 //in us
 
 /*
@@ -36,6 +37,7 @@ namespace Stepper{
 
         // for velocity control
         uint64_t last_spd_chg = 0;
+        uint64_t last_accel_update = 0;
         double pos_last_spd_chg = 0;
         double spd_setpoint = 0;
         double current_spd = 0;

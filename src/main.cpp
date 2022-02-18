@@ -12,9 +12,9 @@ double setpoint_x = 0;
 double setpoint_y = 0;
 unsigned long lastPrint = 0;
 
-unsigned long t2;
-// double speed_const = 12800e-6/512;
-double speed_const = 6400e-6/512; // (micro)steps per microsec per analogRead unit
+unsigned long last_obj_update;
+// double speed_const = 12800/512;
+double speed_const = 6400/512.0; // (micro)steps per sec per analogRead unit
 // double speed_const = 1600e-6/512; // (micro)steps per microsec per analogRead unit
 
 Stepper::Stepper x_motor(XSTEP_PIN, XDIR_PIN, PULSE_TIME);
@@ -26,12 +26,21 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 float star_pos[2]; // stores x,y star position 
 float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
 
-double k_xp = 0.5e-6;
-double k_yp = 0.3e-6; 
-double k_xi = 1e-12;
-double k_yi = 1e-12;
+double k_xp = 0.5; // (microsteps/s)
+double k_yp = 0.3; 
+double k_xi = 1.0; // (microsteps/s^2)
+double k_yi = 1.0;
+
+double x_int = 0.0;
+double y_int = 0.0;
 
 int mode = MODE_JOYSTICK;
+
+void reset_pid() {
+    x_int = 0;
+    y_int = 0;
+    last_obj_update = micros();
+}
 
 void setup() {
 
@@ -59,14 +68,13 @@ void setup() {
     lastPrint = millis();
     digitalWrite(LED_BUILTIN, HIGH);
     Serial.println("hello");
-    t2 = micros();
+    reset_pid();
 } 
 
 void loop() {
 
     
     unsigned long t = micros();
-    unsigned long dt = t-t2;
 
     if (mode == MODE_JOYSTICK) {
 
@@ -80,7 +88,8 @@ void loop() {
         y_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
 
         if (millis() >= (lastPrint + 100)){
-            Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(1e6*x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(1e6*y_motor.get_speed()));
+            // Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(y_motor.get_speed()));
+            Serial.print(x_motor.get_speed()); Serial.print("\t"); Serial.println(y_motor.get_speed());
             lastPrint = millis();
         }
     
@@ -91,19 +100,34 @@ void loop() {
                 // successfully parsed
                 // Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
                 // Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
-                x_motor.set_spd_target(-k_xp * (star_setpoint[0] - star_pos[0]));
-                y_motor.set_spd_target(-k_yp * (star_setpoint[1] - star_pos[1]));
+                
+                // update integrators
+                unsigned long dt = t-last_obj_update;
+
+                double antiwindup_thresh = MAX_SPEED/500.0;
+                float x_err = star_pos[0] - star_setpoint[0];
+                float y_err = star_pos[1] - star_setpoint[1];
+
+                x_int += x_err * (dt / 1e6) * k_xi;
+                x_int = max(-antiwindup_thresh, min(antiwindup_thresh, x_int)); // anti-windup by clamping integrator
+                y_int += y_err * (dt / 1e6) * k_yi;
+                y_int = max(-antiwindup_thresh, min(antiwindup_thresh, y_int)); // anti-windup by clamping integrator
+
+                x_motor.set_spd_target(k_xp * x_err + x_int);
+                y_motor.set_spd_target(k_yp * y_err + y_int);
+
+                last_obj_update = t;
             }
             digitalWrite(LED_BUILTIN, LOW);
         }
 
-        if (millis() >= (lastPrint + 100)){
+        if (millis() >= (lastPrint + 10)){
             // send telemetry
             Comms::write_telemetry( micros(), star_pos,
                                     x_motor.get_spd_setpoint(), y_motor.get_spd_setpoint(),
                                     x_motor.get_speed(), y_motor.get_speed(),
                                     x_motor.get_stepcount(), y_motor.get_stepcount());
-            lastPrint = millis();
+            lastPrint = millis(); 
         }
 
     }
@@ -117,6 +141,7 @@ void loop() {
             Comms::writeln("trk");
             // Serial.println("Switched to tracking mode");
             digitalWrite(LED_BUILTIN, LOW);
+            reset_pid();
         } else if (mode == MODE_TRACK) {
             x_motor.set_spd_target(0);
             y_motor.set_spd_target(0);
@@ -135,8 +160,6 @@ void loop() {
 
     x_motor.update();
     y_motor.update();
-
-    t2 = t;
   
 }
 
