@@ -5,12 +5,13 @@ import multiprocessing as mp
 import multiprocessing.sharedctypes as mpc
 
 # defaults
+# acq_proc_img = True
 acq_proc_img = True
 trk_record_vid = False
 record_telemetry = True
 
 
-def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
+def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
     """
     Control logic for commanding star tracker system
     Starts in acquisition mode
@@ -49,7 +50,8 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
         elif new_mode == "acq":
             print("--- Switching to acquisition mode ---")
             PROCESS_IMG.value = acq_proc_img
-            LIVE_DISPLAY.value = True
+            LIVE_DISPLAY.value = False
+            # LIVE_DISPLAY.value = True
             RECORD_VIDEO.value = False
 
             if mode == "acq": # already in acquition mode, nothing to do
@@ -65,7 +67,16 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
 
     switch_to_mode("acq")
 
+    last_update = 0
+
     while True:
+        # write new data if available
+        update_time, obj_x, obj_y = OBJ_COORD[:]
+        if mode == "trk" and update_time != last_update:
+            comms.write_coord(obj_x, obj_y)
+            last_update = update_time
+
+        # read telemetry / commands if available
         line = comms.read()
         if line is not None:
             split = line.split(",")
@@ -73,8 +84,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO):
                 switch_to_mode(split[0])
                 continue
             elif telemetry and record_telemetry: # telemetry data incoming, record it
-                print("hi")
-                # print(split)
+                print(split)
             
 
 if __name__ == "__main__":
@@ -82,8 +92,10 @@ if __name__ == "__main__":
     PROCESS_IMG = mpc.RawValue(ctypes.c_bool, False) # no lock because only star_command will write 
     LIVE_DISPLAY = mpc.RawValue(ctypes.c_bool, False) # no lock because only star_command will write
     RECORD_VIDEO = mpc.RawValue(ctypes.c_bool, False) # no lock because only star_command will write 
-    
-    p = mp.Process(target = star_detect.main, args = (PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO))
+    OBJ_COORD = mp.Array("d", 3, lock = True) # first entry is write_time, 2nd is x, 3rd is y
+
+    p = mp.Process(target = star_detect.main, args = (PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD))
+    # p = mp.Process(target = star_detect.fuckery, args = (PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD))
     p.start()
-    main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO)
+    main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD)
     # p.join()
