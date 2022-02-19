@@ -26,10 +26,15 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 float star_pos[2]; // stores x,y star position 
 float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
 
-double k_xp = 0.5; // (microsteps/s)
-double k_yp = 0.3; 
-double k_xi = 1.0; // (microsteps/s^2)
-double k_yi = 1.0;
+// double k_xp = 0.5; // (microsteps/s)
+// double k_yp = 0.3; 
+// double k_xi = 1.0; // (microsteps/s^2)
+// double k_yi = 0.6;
+
+double k_xp = 15.0; // (microsteps/s)
+double k_yp = 9.0; 
+double k_xi = 1.5; // (microsteps/s^2)
+double k_yi = 0.9;
 
 double x_int = 0.0;
 double y_int = 0.0;
@@ -101,20 +106,32 @@ void loop() {
                 // Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
                 // Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
                 
+                // compute proportional terms
+                double x_err = star_pos[0] - star_setpoint[0];
+                double y_err = star_pos[1] - star_setpoint[1];
+                double x_prop = k_xp * x_err;
+                double y_prop = k_yp * y_err;
+
                 // update integrators
                 unsigned long dt = t-last_obj_update;
+                double antiwindup_thresh = MAX_SPEED/25.0;
+            
+                // improved anti-windup
+                // if (abs(x_prop) <= antiwindup_thresh || (x_err * x_int < 0)) {
+                //     x_int += x_err * (dt / 1.0e6) * k_xi;
+                // }
 
-                double antiwindup_thresh = MAX_SPEED/500.0;
-                float x_err = star_pos[0] - star_setpoint[0];
-                float y_err = star_pos[1] - star_setpoint[1];
+                // if (abs(y_prop) <= antiwindup_thresh || (y_err * y_int < 0)) {
+                //     y_int += y_err * (dt / 1.0e6) * k_yi;
+                // }
 
-                x_int += x_err * (dt / 1e6) * k_xi;
+                x_int += x_err * (dt / 1.0e6) * k_xi;
                 x_int = max(-antiwindup_thresh, min(antiwindup_thresh, x_int)); // anti-windup by clamping integrator
-                y_int += y_err * (dt / 1e6) * k_yi;
+                y_int += y_err * (dt / 1.0e6) * k_yi;
                 y_int = max(-antiwindup_thresh, min(antiwindup_thresh, y_int)); // anti-windup by clamping integrator
 
-                x_motor.set_spd_target(k_xp * x_err + x_int);
-                y_motor.set_spd_target(k_yp * y_err + y_int);
+                x_motor.set_spd_target((k_xp * x_err) + x_int);
+                y_motor.set_spd_target((k_yp * y_err) + y_int);
 
                 last_obj_update = t;
             }
@@ -126,7 +143,8 @@ void loop() {
             Comms::write_telemetry( micros(), star_pos,
                                     x_motor.get_spd_setpoint(), y_motor.get_spd_setpoint(),
                                     x_motor.get_speed(), y_motor.get_speed(),
-                                    x_motor.get_stepcount(), y_motor.get_stepcount());
+                                    x_motor.get_stepcount(), y_motor.get_stepcount(),
+                                    x_int, y_int);
             lastPrint = millis(); 
         }
 

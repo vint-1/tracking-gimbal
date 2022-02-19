@@ -13,8 +13,9 @@ namespace Comms {
                         float * obj_pos,
                         double target_spd_x, double target_spd_y,
                         double curr_spd_x, double curr_spd_y,
-                        long stepcount_x, long stepcount_y);
+                        long stepcount_x, long stepcount_y,
+                        double x_int, double y_int);
     // Telemetry format:
-    // time (us); obj x,y (px); spd target x,y (uS/s); spd current x,y (uS/s); microsteps x,y
+    // time (us); obj x,y (px); spd target x,y (uS/s); spd current x,y (uS/s); microsteps x,y; integral x,y;
 
 }

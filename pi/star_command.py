@@ -28,7 +28,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
     """
     mode = "acq"
     is_telemetry = False
-    telemetry_writer = telemetry.csvWriter(header = ["time", "obj_x", "obj_y", "setspd_x", "setspd_y", "spd_x", "spd_y", "step_x", "step_y"])
+    telemetry_writer = telemetry.csvWriter(header = ["time", "obj_x", "obj_y", "setspd_x", "setspd_y", "spd_x", "spd_y", "step_x", "step_y", "integral_x", "integral_y"])
 
     def switch_to_mode(new_mode):
 
