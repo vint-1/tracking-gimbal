@@ -8,3 +8,5 @@
 media/
 pi/__pycache__/
 data/**/~*
+*.prototxt
+*.caffemodel
