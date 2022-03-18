@@ -53,7 +53,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
 
     # tracker = OPENCV_OBJECT_TRACKERS[algo_name]()
     algorithms = algo_name.split("+")
-    trackers = None
+    trackers = [OPENCV_OBJECT_TRACKERS[algo]() for algo in algorithms]
 
     track_x = [[] for _ in range(len(trackers))]
     track_y = [[] for _ in range(len(trackers))]
@@ -86,7 +86,6 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             box = tuple([round(coord * scale_factor) for coord in box])
             print(box)
             cv.destroyAllWindows()
-            trackers = [OPENCV_OBJECT_TRACKERS[algo]() for algo in algorithms]
             is_detect = [tracker.init(img1, box[i]) for i,tracker in enumerate(trackers)]
         else:
             for i, tracker in enumerate(trackers):
@@ -141,7 +140,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
                 else:
                     timestamp = datetime.now().strftime("%y-%m-%d")
                     vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, f"{mode}", out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
-                print(vid_out1.isOpened(), out_img.shape[:2])
+                print("recording video... ",vid_out1.isOpened(), out_img.shape[:2])
 
             # if vid_out2 is None:
             #     w, h = roi_disp.shape[:2]

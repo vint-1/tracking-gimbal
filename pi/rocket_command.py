@@ -6,10 +6,9 @@ import multiprocessing.sharedctypes as mpc
 import telemetry
 
 # defaults
-# acq_proc_img = True
 acq_proc_img = False
 trk_record_vid = False
-record_telemetry = False
+record_telemetry = True
 
 
 def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
