@@ -24,25 +24,22 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 // RotateControl spd_controller(PULSE_TIME, UPDATE_PERIOD);
 
 float star_pos[2]; // stores x,y star position 
-float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
+float star_setpoint[2] = {360.0, 480.0}; // x,y setpoint for star position 
 
-// double k_xp = 0.5; // (microsteps/s)
-// double k_yp = 0.3; 
-// double k_xi = 1.0; // (microsteps/s^2)
-// double k_yi = 0.6;
+// double k_xp = 24.0; // (microsteps/s)
+// double k_yp = 14.4; 
+// double k_xi = 3.0; 
+// double k_yi = 1.8;
 
-// verified works decently
-double k_xp = 2.0; // (microsteps/s)
-double k_yp = 1.2; 
-double k_xi = 0.75; 
-double k_yi = 0.45;
+double k_xp = 12.0; // (microsteps/s)
+double k_yp = 7.2; 
+double k_xi = 1.5; 
+double k_yi = 0.9;
 
 // double k_xp = 1.0; // (microsteps/s)
 // double k_yp = 0.6; 
-// double k_xi = 0.25; double k_yi = 0.15;
-
-// double k_xi = 1.5; // (microsteps/s^2)
-// double k_yi = 0.9;
+// double k_xi = 0.25; 
+// double k_yi = 0.15;
 
 double x_int = 0.0;
 double y_int = 0.0;
@@ -148,7 +145,7 @@ void loop() {
                     x_motor.set_spd_target((k_xp * x_err) + x_int);
                     y_motor.set_spd_target((k_yp * y_err) + y_int);
                 }
-
+                
                 last_obj_update = t;
             }
             digitalWrite(LED_BUILTIN, LOW);

@@ -6,8 +6,8 @@
 
 // #define MAX_SPEED 12800 // microsteps/s
 #define MAX_SPEED 6400 // microsteps/s
-#define MAX_ACCEL 12800 // microsteps/s^2
-// #define MAX_ACCEL 10000
+// #define MAX_ACCEL 12800 // microsteps/s^2
+#define MAX_ACCEL 10000
 #define PULSE_TIME 10 // in us
 #define UPDATE_PERIOD 1000 //in us
 

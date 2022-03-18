@@ -80,11 +80,12 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         if framenum == 1:
             # get first bounding box
             resized_img = cv.resize(img1, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
-            box = [(1008, 1336, 108, 452) for _ in trackers]
+            # box = [(1008, 1336, 108, 452) for _ in trackers]
             
-            # box = cv.selectROI(resized_img, False)
-            # box = tuple([round(coord * scale_factor) for coord in box])
-            # print(box)
+            box = cv.selectROI(resized_img, False)
+            box = tuple([round(coord * scale_factor) for coord in box])
+            print(box)
+            box = [box for _ in trackers]
             # cv.destroyAllWindows()
             is_detect = [tracker.init(img1, box[i]) for i,tracker in enumerate(trackers)]
         else:
