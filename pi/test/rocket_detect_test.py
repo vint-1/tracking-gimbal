@@ -1,4 +1,3 @@
-from concurrent.futures import process
 import cv2 as cv
 from cv2 import COLOR_BGR2RGB
 import os
@@ -9,7 +8,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
 
-offline_test = False
+offline_test = True
 debug_timing = False
 
 OPENCV_OBJECT_TRACKERS = {
@@ -43,21 +42,21 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
     print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
     framenum = 0
-    scale_factor = 1
+    scale_factor = 4
 
     fourcc = cv.VideoWriter_fourcc(*'XVID')
     # fourcc = cv.VideoWriter_fourcc(*'H264')
     vid_out1 = None
-    vid_view = None
     tEnd = time.time()
 
     lastPrint = time.time()
 
     # tracker = OPENCV_OBJECT_TRACKERS[algo_name]()
     algorithms = algo_name.split("+")
-    trackers = [OPENCV_OBJECT_TRACKERS[algo]() for algo in algorithms]
-    track_x = [[] for _ in trackers]
-    track_y = [[] for _ in trackers]
+    trackers = None
+
+    track_x = [[] for _ in range(len(trackers))]
+    track_y = [[] for _ in range(len(trackers))]
 
     while vid.isOpened():
 
@@ -67,17 +66,13 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         
         t0 = time.time()
 
-        if process_img_flag:
-            framenum +=1
-        else:
-            framenum = 0
+        framenum +=1
 
         ret, img1 = vid.read()
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
-        img1 = cv.rotate(img1, cv.ROTATE_90_COUNTERCLOCKWISE)
-        # gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
+        gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
 
         # detect rocket
         t1 = time.time()
@@ -90,12 +85,9 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             box = cv.selectROI(resized_img, False)
             box = tuple([round(coord * scale_factor) for coord in box])
             print(box)
-            # cv.destroyAllWindows()
-            box = [box for _ in trackers]
+            cv.destroyAllWindows()
+            trackers = [OPENCV_OBJECT_TRACKERS[algo]() for algo in algorithms]
             is_detect = [tracker.init(img1, box[i]) for i,tracker in enumerate(trackers)]
-        elif framenum == 0:
-            # tracking hasn't started yet, just idle
-            is_detect = [False for _ in trackers]
         else:
             for i, tracker in enumerate(trackers):
                 is_detect[i], box[i] = tracker.update(img1)
@@ -103,8 +95,6 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         for i in range(len(trackers)):
             x = box[i][0] + box[i][2]//2 if is_detect[i] else -1
             y = box[i][1] + box[i][3]//2 if is_detect[i] else -1
-            if i == 0:
-                OBJ_COORD[:] = (time.time(), x, y)
             track_x[i].append(x)
             track_y[i].append(y)
 
@@ -114,6 +104,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         if live_display_flag or record_video_flag:
             
             out_img = img1
+
             if (x,y) != (-1,-1):
                 track_colors = [(20,20,255), (255,20,50)]
                 # cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
@@ -125,18 +116,14 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
                     cv.putText(out_img,f"{algorithms[i]}",(50,150+50*(i)),cv.FONT_HERSHEY_DUPLEX,2,track_colors[i],2)
             else:
                 roi_disp = None
-            cv.putText(out_img,"{:.2f} fps".format(1/(t0+1e-6-tEnd)),(50,100),cv.FONT_HERSHEY_DUPLEX,2,(25,255,255),2)
+
+            out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
+            cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0+1e-6-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
 
         if live_display_flag:
-            # cv.imshow("tracking", out_img_disp)
+            cv.imshow("tracking", out_img_disp)
             # if roi_disp is not None:
                 # cv.imshow("RoI", roi_disp)
-            if vid_view is None:
-                h, w = out_img.shape[:2]
-                vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink  host=0.0.0.0 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
-                print(vid_view.isOpened(), h, w)
-            
-            vid_view.write(out_img)
         else:
             cv.destroyAllWindows()
         t3 = time.time()
@@ -171,7 +158,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         if k == ord('q'):
             break
 
-        if framenum % 60 == 1:
+        if framenum % 60 == 0:
             print("FPS = {:.2f}\t x = {:.2f} \t y = {:.2f}".format(60/(time.time() - lastPrint), x, y))
             lastPrint = time.time()
             # break
