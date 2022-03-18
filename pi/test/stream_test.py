@@ -9,58 +9,29 @@ import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
 
-# from picamera.array import PiRGBArray
-# from picamera import PiCamera
-
-# camera=PiCamera(sensor_mode=2)
-# camera.resolution=(2592,1944)
-# camera.exposure_compensation=-6
-# camera.meter_mode='backlit'
-# camera.framerate=60
 
 offline_test = False
 debug_timing = False
 
-def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
+def main():
 
-    ref = "stars-capture"
-    out_dir = "tracking"
-    vid_num = 4
-    algo_name = "gaussian-multiproc"
-
-    if offline_test:
-        vid = cv.VideoCapture(os.path.join(pathutils.media_path, f"{ref}-{vid_num}.avi"))
-
-    else:
-        vid = cv.VideoCapture("-v v4l2src device=/dev/video0 num-buffers=-1 ! video/x-raw,width=1280,height=720, framerate=30/1 ! appsink", cv.CAP_GSTREAMER)
-        # vid = cv.VideoCapture(0, cv.CAP_V4L2)
-        # vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
-        # vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
+    vid = cv.VideoCapture("-v v4l2src device=/dev/video0 num-buffers=-1 ! video/x-raw,width=1280,height=720, framerate=30/1 ! appsink", cv.CAP_GSTREAMER)
+    # vid = cv.VideoCapture(0, cv.CAP_V4L2)
+    # vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+    # vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
     print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
     framenum = 0
-    scale_factor = 1
 
     fourcc = cv.VideoWriter_fourcc(*'XVID')
     # fourcc = cv.VideoWriter_fourcc(*'H264')
-    vid_out1 = None
-    vid_out2 = None
     vid_view = None
-    tEnd = time.time()
 
-    track_x = []
-    track_y = []
 
     lastPrint = time.time()
 
     while vid.isOpened():
-
-        process_img_flag = PROCESS_IMG.value
-        live_display_flag = LIVE_DISPLAY.value
-        record_video_flag = RECORD_VIDEO.value
-        
-        t0 = time.time()
 
         framenum +=1
 
@@ -68,136 +39,29 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         if not ret:
             print("Can't receive frame (stream end?). Exiting ...")
             break
-        gray1 = cv.cvtColor(img1, cv.COLOR_BGR2GRAY)
-
-        # detect stars
-        t1 = time.time()
         
-        # -- Method 1: use moments ie. find centroid -- 
-        # x, y = centroid(gray1)
-
-        # -- Method 2: use centroids, but iteratively --
-        # try:
-        #     x, y = adv_centroid(gray1)
-        # except ZeroDivisionError as e:
-        #     print("could not find star")
-        #     x = 0
-        #     y = 0
-        
-        # print(f"{x:.3f}\t{y:.3f}\t{roi_x:.3f}\t{roi_y:.3f}")
-
-        # -- Method 3: use star-extract
-        if process_img_flag:
-            output = star_extract(gray1)
-            if output is not None:
-                x, y = output
-                OBJ_COORD[:] = (time.time(), x, y)
-                # comms.write_coord(x, y)
-            else:
-                # print("no stars detected")
-                x, y = (-1, -1)
-        else:
-            x, y = (-1, -1)
-
-        track_x.append(x)
-        track_y.append(y)
-
-        t2 = time.time()
-
-        # display
-        if live_display_flag or record_video_flag:
-            
-            out_img = img1
-
-            if (x,y) != (-1,-1):
-                cv.circle(out_img, tuple((round(x), round(y))) , 0, (0, 255, 0), thickness=-1)
-                cv.circle(out_img, tuple((round(x), round(y))) , 10, (0, 255, 0), thickness=1)
-                # roi_1, roi_x, roi_y = roi(img1, (round(x),round(y)), 20)
-                # roi_disp = cv.resize(roi_1, None, fx=8, fy=8, interpolation=cv.INTER_AREA)
-            else:
-                roi_disp = None
-
-            out_img_disp = cv.resize(out_img, None, fx=1/scale_factor, fy=1/scale_factor, interpolation=cv.INTER_AREA)
-            cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
-
-        if live_display_flag:
-            # cv.imshow("tracking", out_img_disp)
-            # if roi_disp is not None:
-                # cv.imshow("RoI", roi_disp)
-            if vid_view is None:
-                h, w = out_img.shape[:2]
-                # vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! jpegdec ! autovideosink", cv.CAP_GSTREAMER, 30.0, (w, h))
-                vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink  host=10.0.0.153 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
-                print(vid_view.isOpened(), h, w)
-            vid_view.write(out_img)
-        else:
-            cv.destroyAllWindows()
-        t3 = time.time()
-
-        # plot, for diagnostics
-        # if framenum % 120 == 0:
-        #     img, _, _ = roi(gray1, (round(x),round(y)), 25)
-        #     plot_img_surface(img, is_show=True)
-
-        if record_video_flag:
-            if vid_out1 is None:
-                w, h = out_img.shape[:2]
-                if offline_test:
-                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
-                else:
-                    timestamp = datetime.now().strftime("%y-%m-%d")
-                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
-                print(vid_out1.isOpened(), out_img.shape[:2])
-
-            # if vid_out2 is None:
-            #     w, h = roi_disp.shape[:2]
-            #     vid_out2 = cv.VideoWriter(os.path.join(media_path, out_dir, f"{ref}-roi-{algo_name}-{vid_num}.avi"), fourcc, 20.0, (h, w))
-            #     print(vid_out2.isOpened(), roi_disp.shape[:2])
-
-            vid_out1.write(out_img)
-            # if roi_disp is not None:
-            #     vid_out2.write(roi_disp)
-
-        t4 = time.time()
-
-        k = cv.waitKey(delay=1)
-        if k == 'q':
-            break
+        out_img = img1
+        if vid_view is None:
+            h, w = out_img.shape[:2]
+            # vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! jpegdec ! autovideosink", cv.CAP_GSTREAMER, 30.0, (w, h))
+            vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! multipartmux ! tcpserversink  host=10.0.0.153 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
+            print(vid_view.isOpened(), h, w)
+        vid_view.write(out_img)
 
         if framenum % 60 == 0:
-            print("FPS = {:.2f}\t x = {:.2f} \t y = {:.2f}".format(60/(time.time() - lastPrint), x, y))
+            print("FPS = {:.2f}\t x = {:.2f} \t y = {:.2f}".format(60/(time.time() - lastPrint), 0, 0))
             lastPrint = time.time()
             # break
 
-        if debug_timing:
-            print(f"({x:.2f}\t{y:.2f})\t Reading: {t1-t0:.3f}s\t Star Extraction: {t2-t1:.3f}s\t Display: {t3-t2:.3f}s\t Recording: {t4-t3:.3f}s")
-
-        t5 = time.time()
-        tEnd = t0
 
     try:
         vid.release()
-        vid_out1.release()
-        vid_out2.release()
+        vid_view.release()
     except:
         pass
 
-    # plot results
-    fig1, axes = plt.subplots(1,2)
-    plt.subplots_adjust(0.05,0.1,0.95,0.9)
-    axes[0].set_title(f"x position - {algo_name}")
-    axes[0].set_xlabel("frame number")
-    axes[0].plot(track_x)
-    axes[1].set_title(f"y position - {algo_name}")
-    axes[1].set_xlabel("frame number")
-    axes[1].plot(track_y)
-
-    plt.show()
-
-    # k = cv.waitKey(0)
-    # if k == ord("c"):
-    #     pass
-
+if __name__ == "__main__":
+    main()
 
 def plot_img_surface(img, ax = None, is_show = False, title = ""):
     if ax is None:
