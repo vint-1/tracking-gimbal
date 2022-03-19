@@ -134,7 +134,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             if vid_view is None:
                 h, w = out_img.shape[:2]
                 vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink  host=0.0.0.0 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
-                print(vid_view.isOpened(), h, w)
+                print("live video feed via tcp at port 5000...",vid_view.isOpened(), h, w)
             
             vid_view.write(out_img)
         else:
@@ -150,11 +150,13 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             if vid_out1 is None:
                 w, h = out_img.shape[:2]
                 if offline_test:
-                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, f"{mode}", out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi"), fourcc, 30.0, (h, w))
+                    video_path = os.path.join(pathutils.media_path, f"{mode}", out_dir, f"{ref}-track-{algo_name}-{vid_num}.avi")
+                    vid_out1 = cv.VideoWriter(video_path, fourcc, 30.0, (h, w))
                 else:
                     timestamp = datetime.now().strftime("%y-%m-%d")
-                    vid_out1 = cv.VideoWriter(os.path.join(pathutils.media_path, f"{mode}", out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi"), fourcc, 20.0, (h, w))
-                print(vid_out1.isOpened(), out_img.shape[:2])
+                    video_path = os.path.join(pathutils.media_path, f"{mode}", out_dir, f"{timestamp}-{ref}-track-{algo_name}.avi")
+                    vid_out1 = cv.VideoWriter(video_path, fourcc, 30.0, (h, w))
+                print(f"recording video to {video_path}\t",vid_out1.isOpened(), out_img.shape[:2])
 
             # if vid_out2 is None:
             #     w, h = roi_disp.shape[:2]
