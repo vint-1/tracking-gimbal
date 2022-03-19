@@ -23,7 +23,9 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 // StepControl<> pos_controller(PULSE_TIME, UPDATE_PERIOD);
 // RotateControl spd_controller(PULSE_TIME, UPDATE_PERIOD);
 
-float star_pos[2]; // stores x,y star position 
+float star_pos[2]; // stores x,y star position
+float prev_star_pos[2]; // stores previous position for derivative computation 
+bool prev_pos_valid; // flag to see if previously stored position is valid
 float star_setpoint[2] = {360.0, 480.0}; // x,y setpoint for star position 
 
 // double k_xp = 24.0; // (microsteps/s)
@@ -43,10 +45,12 @@ float star_setpoint[2] = {360.0, 480.0}; // x,y setpoint for star position
 // double k_xi = 0.75; 
 // double k_yi = 0.45;
 
-double k_xp = 6.0;//8.0; //6.0 // (microsteps/s)
-double k_yp = 3.6;//4.2; //3.6
-double k_xi = 3.0;//4.0; //3.0
-double k_yi = 1.8;//2.4; //1.8
+double k_xp = 20.0;//30.0;//20.0;//10.0;//8.0; //6.0 // (microsteps/s)
+double k_yp = 10.4;//15.6;//10.4;//5.2;//4.2; //3.6
+double k_xi = 5.0;//10.0;//10.0;//5.0;//4.0; //3.0
+double k_yi = 3.0;//6.0;//6.0;//3.0;//2.4; //1.8
+double k_xd = 0.2;
+double k_yd = 0.12;
 
 // double k_xp = 1.0; // (microsteps/s)
 // double k_yp = 0.6; 
@@ -62,6 +66,7 @@ void reset_pid() {
     x_int = 0;
     y_int = 0;
     last_obj_update = micros();
+    prev_pos_valid = false;
 }
 
 void setup() {
@@ -127,6 +132,7 @@ void loop() {
                     // object not detected - stop moving
                     x_motor.set_spd_target(0);
                     y_motor.set_spd_target(0);
+                    prev_pos_valid = false;
                 }
 
                 else {
@@ -148,17 +154,27 @@ void loop() {
                     // if (abs(y_prop) <= antiwindup_thresh || (y_err * y_int < 0)) {
                     //     y_int += y_err * (dt / 1.0e6) * k_yi;
                     // }
+                    double x_dev = 0;
+                    double y_dev = 0;
+                    if (prev_pos_valid) {
+                        x_dev = k_xd * (star_pos[0] - prev_star_pos[0]) / (dt / 1.0e6);
+                        y_dev = k_yd * (star_pos[1] - prev_star_pos[1]) / (dt / 1.0e6);
+                    }
 
                     x_int += x_err * (dt / 1.0e6) * k_xi;
                     x_int = max(-antiwindup_thresh, min(antiwindup_thresh, x_int)); // anti-windup by clamping integrator
                     y_int += y_err * (dt / 1.0e6) * k_yi;
                     y_int = max(-antiwindup_thresh, min(antiwindup_thresh, y_int)); // anti-windup by clamping integrator
 
-                    x_motor.set_spd_target((k_xp * x_err) + x_int);
-                    y_motor.set_spd_target((k_yp * y_err) + y_int);
+                    x_motor.set_spd_target((k_xp * x_err) + x_int + x_dev);
+                    y_motor.set_spd_target((k_yp * y_err) + y_int + y_dev);
+                    prev_star_pos[0] = star_pos[0];
+                    prev_star_pos[1] = star_pos[1];
+                    prev_pos_valid = true;
                 }
                 
                 last_obj_update = t;
+                
             }
             digitalWrite(LED_BUILTIN, LOW);
         }
