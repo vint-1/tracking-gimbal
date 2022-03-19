@@ -31,10 +31,22 @@ float star_setpoint[2] = {360.0, 480.0}; // x,y setpoint for star position
 // double k_xi = 3.0; 
 // double k_yi = 1.8;
 
-double k_xp = 12.0; // (microsteps/s)
-double k_yp = 7.2; 
-double k_xi = 1.5; 
-double k_yi = 0.9;
+//good constants
+// double k_xp = 12.0; // (microsteps/s)
+// double k_yp = 7.2; 
+// double k_xi = 1.5; 
+// double k_yi = 0.9;
+
+//conservative baseline
+// double k_xp = 6.0; // (microsteps/s)
+// double k_yp = 3.6; 
+// double k_xi = 0.75; 
+// double k_yi = 0.45;
+
+double k_xp = 6.0;//8.0; //6.0 // (microsteps/s)
+double k_yp = 3.6;//4.2; //3.6
+double k_xi = 3.0;//4.0; //3.0
+double k_yi = 1.8;//2.4; //1.8
 
 // double k_xp = 1.0; // (microsteps/s)
 // double k_yp = 0.6; 
