@@ -8,6 +8,7 @@ import pathutils
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
+import subprocess
 
 offline_test = False
 debug_timing = False
@@ -36,11 +37,12 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         print(os.path.join(pathutils.media_path, f"{ref}-{vid_num}.mp4"))
 
     else:
+        subprocess.call("v4l2-ctl -d /dev/video0 -c auto_exposure=1 -c exposure_time_absolute=5", shell = True)
         vid = cv.VideoCapture(0, cv.CAP_V4L2)
         vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
         vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
-    print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
+    print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT), vid.get(cv.CAP_PROP_EXPOSURE))
 
     framenum = 0
     scale_factor = 1
