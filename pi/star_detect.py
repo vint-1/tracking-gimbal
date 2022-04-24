@@ -4,6 +4,7 @@ import os
 import time
 import numpy as np
 import pathutils
+import streamer
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from datetime import datetime
@@ -31,19 +32,22 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         vid = cv.VideoCapture(os.path.join(pathutils.media_path, f"{ref}-{vid_num}.avi"))
 
     else:
-        vid = cv.VideoCapture(0, cv.CAP_V4L2)
-        vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
-        vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
+        vid = cv.VideoCapture("-v v4l2src device=/dev/video0 num-buffers=-1 ! video/x-raw,width=1280,height=720, framerate=30/1 ! appsink", cv.CAP_GSTREAMER)
+        # vid = cv.VideoCapture(0, cv.CAP_V4L2)
+        # vid.set(cv.CAP_PROP_FRAME_WIDTH, 960) #2592
+        # vid.set(cv.CAP_PROP_FRAME_HEIGHT, 720) #1944
 
     print(vid.get(cv.CAP_PROP_FRAME_WIDTH), vid.get(cv.CAP_PROP_FRAME_HEIGHT))
 
     framenum = 0
-    scale_factor = 1
+    scale_factor = 2.0
 
     fourcc = cv.VideoWriter_fourcc(*'XVID')
     # fourcc = cv.VideoWriter_fourcc(*'H264')
     vid_out1 = None
     vid_out2 = None
+    vid_view = None
+    vid_streamer = streamer.Streamer()
     tEnd = time.time()
 
     track_x = []
@@ -118,9 +122,16 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             cv.putText(out_img_disp,"{:.2f} fps".format(1/(t0-tEnd)),(10,25),cv.FONT_HERSHEY_COMPLEX,0.5,(25,255,255),1)
 
         if live_display_flag:
-            cv.imshow("tracking", out_img_disp)
+            # cv.imshow("tracking", out_img_disp)
             # if roi_disp is not None:
                 # cv.imshow("RoI", roi_disp)
+            if not vid_streamer.is_streaming():
+                h, w = out_img_disp.shape[:2]
+                # vid_view = cv.VideoWriter("appsrc ! videoconvert ! x264enc ! avdec_h264 ! autovideosink", cv.CAP_GSTREAMER, 30.0, (w, h))
+                # vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink host=0.0.0.0 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
+                vid_streamer.start_streaming()
+                print(f"Video streaming server started at port {streamer.STREAMING_PORT} with {h}x{w} resolution")
+            vid_streamer.write_img(out_img_disp)
         else:
             cv.destroyAllWindows()
         t3 = time.time()
