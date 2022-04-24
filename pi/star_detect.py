@@ -127,7 +127,7 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
             if vid_view is None:
                 h, w = out_img.shape[:2]
                 # vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! jpegdec ! autovideosink", cv.CAP_GSTREAMER, 30.0, (w, h))
-                vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink  host=10.0.0.153 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
+                vid_view = cv.VideoWriter("appsrc ! videoconvert ! jpegenc ! tcpserversink  host=192.168.41.158 port=5000", cv.CAP_GSTREAMER, 30.0, (w, h))
                 print(vid_view.isOpened(), h, w)
             vid_view.write(out_img)
         else:
