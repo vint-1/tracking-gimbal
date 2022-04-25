@@ -24,17 +24,29 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 // RotateControl spd_controller(PULSE_TIME, UPDATE_PERIOD);
 
 float star_pos[2]; // stores x,y star position 
-float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
+float star_setpoint[2] = {640.0, 360.0}; // x,y setpoint for star position 
 
 // double k_xp = 0.5; // (microsteps/s)
 // double k_yp = 0.3; 
-// double k_xi = 1.0; // (microsteps/s^2)
-// double k_yi = 0.6;
+// double k_xi = 0.2; // (microsteps/s^2)
+// double k_yi = 0.15;
 
-double k_xp = 15.0; // (microsteps/s)
-double k_yp = 9.0; 
-double k_xi = 1.5; // (microsteps/s^2)
-double k_yi = 0.9;
+// very slow baseline
+double k_xp = 4.0; // (microsteps/s)
+double k_yp = 2.4; 
+double k_xi = 0.7; 
+double k_yi = 0.4;
+
+// conservative baseline
+// double k_xp = 6.0; // (microsteps/s)
+// double k_yp = 3.6; 
+// double k_xi = 0.75; 
+// double k_yi = 0.45;
+
+// double k_xp = 15.0; // (microsteps/s)
+// double k_yp = 9.0; 
+// double k_xi = 1.5; // (microsteps/s^2)
+// double k_yi = 0.9;
 
 double x_int = 0.0;
 double y_int = 0.0;
@@ -89,8 +101,8 @@ void loop() {
         // x_motor.set_pos_target(long(setpoint_x));
         // y_motor.set_pos_target(long(setpoint_y));
 
-        x_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
-        y_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
+        x_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
+        y_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
 
         if (millis() >= (lastPrint + 100)){
             // Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(y_motor.get_speed()));
@@ -114,7 +126,7 @@ void loop() {
 
                 // update integrators
                 unsigned long dt = t-last_obj_update;
-                double antiwindup_thresh = MAX_SPEED/25.0;
+                double antiwindup_thresh = MAX_SPEED/100.0;
             
                 // improved anti-windup
                 // if (abs(x_prop) <= antiwindup_thresh || (x_err * x_int < 0)) {
@@ -136,6 +148,9 @@ void loop() {
                 last_obj_update = t;
             }
             digitalWrite(LED_BUILTIN, LOW);
+        } else if (t > last_obj_update + PI_TIMEOUT){
+            x_motor.set_spd_target(0);
+            y_motor.set_spd_target(0);
         }
 
         if (millis() >= (lastPrint + 10)){
