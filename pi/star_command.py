@@ -6,8 +6,8 @@ import multiprocessing.sharedctypes as mpc
 import telemetry
 
 # defaults
-# acq_proc_img = True
-acq_proc_img = False
+acq_proc_img = True
+# acq_proc_img = False
 trk_record_vid = False
 record_telemetry = True
 
@@ -39,14 +39,15 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
         if new_mode == "trk":
             print("--- Switching to tracking mode ---")
             PROCESS_IMG.value = True
-            LIVE_DISPLAY.value = False
+            LIVE_DISPLAY.value = True
             RECORD_VIDEO.value = trk_record_vid
 
             if mode == "trk": # already in tracking mode, nothing to do
                 return
         
             # initialize telemetry
-            telemetry_writer.open()
+            if record_telemetry:
+                telemetry_writer.open()
             mode = "trk"
             is_telemetry = True
 
@@ -60,7 +61,8 @@ def main(PROCESS_IMG, LIVE_DISPLAY, RECORD_VIDEO, OBJ_COORD):
                 return
             
             # close telemetry
-            telemetry_writer.close()
+            if record_telemetry:
+                telemetry_writer.close()
             mode = "acq"
             is_telemetry = False
 
