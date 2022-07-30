@@ -19,6 +19,8 @@
 #define STICK_BTN 38
 #define BTN_THRESH 100
 
+#define PI_TIMEOUT 1000000 // in us
+
 void initPinmode(){
   pinMode(YSTEP_PIN,OUTPUT);
   pinMode(YDIR_PIN,OUTPUT);
