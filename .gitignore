@@ -7,3 +7,6 @@
 .mypy_cache/
 media/
 pi/__pycache__/
+data/**/~*
+*.prototxt
+*.caffemodel

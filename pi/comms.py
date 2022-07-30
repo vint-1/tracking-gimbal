@@ -3,7 +3,7 @@ import serial
 import time
 
 BAUD_RATE = 115200
-ser = serial.Serial("/dev/ttyS0", baudrate = BAUD_RATE, timeout = 0.005)
+ser = serial.Serial("/dev/serial0", baudrate = BAUD_RATE, timeout = 0.005)
 
 def write_test():
     while True:
@@ -39,10 +39,15 @@ def write_coord(x, y):
 def read():
     """ 
     Reads from serial. returns None if there is nothing to read, otherwise return single line with whitespace stripped
+    TODO: Handle errors gracefully
     """
     if ser.in_waiting > 0:
-        line = str(ser.readline(), 'ascii').strip()
-        return line
+        try:
+            raw_line = ser.readline()
+            line = str(raw_line, 'ascii').strip()
+            return line
+        except:
+            return
     return
 
 def main():

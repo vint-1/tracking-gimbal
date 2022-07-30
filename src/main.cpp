@@ -24,12 +24,43 @@ Stepper::Stepper y_motor(YSTEP_PIN, YDIR_PIN, PULSE_TIME);
 // RotateControl spd_controller(PULSE_TIME, UPDATE_PERIOD);
 
 float star_pos[2]; // stores x,y star position 
-float star_setpoint[2] = {480.0, 360.0}; // x,y setpoint for star position 
+float star_setpoint[2] = {640.0, 360.0}; // x,y setpoint for star position 
 
-double k_xp = 0.5; // (microsteps/s)
-double k_yp = 0.3; 
-double k_xi = 1.0; // (microsteps/s^2)
-double k_yi = 1.0;
+// double k_xp = 0.5; // (microsteps/s)
+// double k_yp = 0.3; 
+<<<<<<< HEAD
+// double k_xi = 1.0; // (microsteps/s^2)
+// double k_yi = 0.6;
+
+//conservative baseline
+=======
+// double k_xi = 0.2; // (microsteps/s^2)
+// double k_yi = 0.15;
+
+// very slow baseline
+double k_xp = 4.0; // (microsteps/s)
+double k_yp = 2.4; 
+double k_xi = 0.7; 
+double k_yi = 0.4;
+
+// conservative baseline
+>>>>>>> 0ef3d8b405ac290c5a770568d543c1abef3b7352
+// double k_xp = 6.0; // (microsteps/s)
+// double k_yp = 3.6; 
+// double k_xi = 0.75; 
+// double k_yi = 0.45;
+
+<<<<<<< HEAD
+double k_xp = 15.0; // (microsteps/s)
+double k_yp = 9.0; 
+double k_xi = 1.5; // (microsteps/s^2)
+double k_yi = 0.9;
+=======
+// double k_xp = 15.0; // (microsteps/s)
+// double k_yp = 9.0; 
+// double k_xi = 1.5; // (microsteps/s^2)
+// double k_yi = 0.9;
+>>>>>>> 0ef3d8b405ac290c5a770568d543c1abef3b7352
 
 double x_int = 0.0;
 double y_int = 0.0;
@@ -84,8 +115,8 @@ void loop() {
         // x_motor.set_pos_target(long(setpoint_x));
         // y_motor.set_pos_target(long(setpoint_y));
 
-        x_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
-        y_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
+        x_motor.set_spd_target(normalizeInput(analogRead(STICK_X)) * speed_const);
+        y_motor.set_spd_target(normalizeInput(analogRead(STICK_Y)) * speed_const);
 
         if (millis() >= (lastPrint + 100)){
             // Serial.println(String(millis()) + "\tx: " + String(x_motor.get_pos_setpoint()) + "\t" + String(x_motor.get_stepcount()) + "\t" + String(x_motor.get_speed()) + "\ty: " + String(y_motor.get_pos_setpoint()) + "\t" + String(y_motor.get_stepcount()) + "\t" + String(y_motor.get_speed()));
@@ -101,24 +132,39 @@ void loop() {
                 // Serial.print(dt/1000); Serial.print(star_pos[0]); Serial.print("\t"); Serial.print(x_motor.get_speed()); 
                 // Serial.print("\t"); Serial.print(star_pos[1]); Serial.print("\t"); Serial.print(y_motor.get_speed()); Serial.print('\n');
                 
+                // compute proportional terms
+                double x_err = star_pos[0] - star_setpoint[0];
+                double y_err = star_pos[1] - star_setpoint[1];
+                double x_prop = k_xp * x_err;
+                double y_prop = k_yp * y_err;
+
                 // update integrators
                 unsigned long dt = t-last_obj_update;
+                double antiwindup_thresh = MAX_SPEED/100.0;
+            
+                // improved anti-windup
+                // if (abs(x_prop) <= antiwindup_thresh || (x_err * x_int < 0)) {
+                //     x_int += x_err * (dt / 1.0e6) * k_xi;
+                // }
 
-                double antiwindup_thresh = MAX_SPEED/500.0;
-                float x_err = star_pos[0] - star_setpoint[0];
-                float y_err = star_pos[1] - star_setpoint[1];
+                // if (abs(y_prop) <= antiwindup_thresh || (y_err * y_int < 0)) {
+                //     y_int += y_err * (dt / 1.0e6) * k_yi;
+                // }
 
-                x_int += x_err * (dt / 1e6) * k_xi;
+                x_int += x_err * (dt / 1.0e6) * k_xi;
                 x_int = max(-antiwindup_thresh, min(antiwindup_thresh, x_int)); // anti-windup by clamping integrator
-                y_int += y_err * (dt / 1e6) * k_yi;
+                y_int += y_err * (dt / 1.0e6) * k_yi;
                 y_int = max(-antiwindup_thresh, min(antiwindup_thresh, y_int)); // anti-windup by clamping integrator
 
-                x_motor.set_spd_target(k_xp * x_err + x_int);
-                y_motor.set_spd_target(k_yp * y_err + y_int);
+                x_motor.set_spd_target((k_xp * x_err) + x_int);
+                y_motor.set_spd_target((k_yp * y_err) + y_int);
 
                 last_obj_update = t;
             }
             digitalWrite(LED_BUILTIN, LOW);
+        } else if (t > last_obj_update + PI_TIMEOUT){
+            x_motor.set_spd_target(0);
+            y_motor.set_spd_target(0);
         }
 
         if (millis() >= (lastPrint + 10)){
@@ -126,7 +172,8 @@ void loop() {
             Comms::write_telemetry( micros(), star_pos,
                                     x_motor.get_spd_setpoint(), y_motor.get_spd_setpoint(),
                                     x_motor.get_speed(), y_motor.get_speed(),
-                                    x_motor.get_stepcount(), y_motor.get_stepcount());
+                                    x_motor.get_stepcount(), y_motor.get_stepcount(),
+                                    x_int, y_int);
             lastPrint = millis(); 
         }
 

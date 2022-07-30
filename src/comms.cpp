@@ -52,7 +52,8 @@ namespace Comms {
                         float * obj_pos,
                         double target_spd_x, double target_spd_y,
                         double curr_spd_x, double curr_spd_y,
-                        long stepcount_x, long stepcount_y) {
+                        long stepcount_x, long stepcount_y,
+                        double x_int, double y_int) {
         /*
         returns: 0 if successful, 1 otherwise
         */
@@ -60,7 +61,8 @@ namespace Comms {
                         String(obj_pos[0], TELEMETRY_DP) + "," + String(obj_pos[1], TELEMETRY_DP) + "," +
                         String(target_spd_x, TELEMETRY_DP) + "," + String(target_spd_y, TELEMETRY_DP) + "," +
                         String(curr_spd_x, TELEMETRY_DP) + "," + String(curr_spd_y, TELEMETRY_DP) + "," +
-                        String(stepcount_x) + "," + String(stepcount_y));
+                        String(stepcount_x) + "," + String(stepcount_y) + "," +
+                        String(x_int, TELEMETRY_DP) + "," + String(y_int, TELEMETRY_DP));
     }
 
 }
